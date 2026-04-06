@@ -1,0 +1,13 @@
+import api from './axiosConfig'
+export const getStats       = ()         => api.get('/admin/stats')
+export const getGerants     = ()         => api.get('/admin/gerants')
+export const getGerant      = (id)       => api.get(`/admin/gerants/${id}`)
+export const toggleGerant   = (id)       => api.put(`/admin/gerants/${id}/toggle`)
+export const deleteGerant   = (id)       => api.delete(`/admin/gerants/${id}`)
+export const getProduits    = ()         => api.get('/admin/produits')
+export const createProduit  = (data)     => api.post('/admin/produits', data)
+export const updateProduit  = (id, data) => api.put(`/admin/produits/${id}`, data)
+export const deleteProduit  = (id)       => api.delete(`/admin/produits/${id}`)
+export const assignerProduit= (data)     => api.post('/admin/assigner', data)
+export const getAssignments = ()         => api.get('/admin/assignments')
+export const getVentes      = ()         => api.get('/admin/ventes')
