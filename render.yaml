@@ -1,11 +1,10 @@
-# render.yaml
 services:
   - type: web
     name: gestion-stock-api
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && gunicorn run:app --bind 0.0.0.0:$PORT
     envVars:
       - key: DATABASE_URL
-        value: postgresql://stockuser:l3fuyJNVKhU7BqEiH1CyGsX52VMRc4Z7@dpg-d7abeb8gjchc73fmu120-a.oregon-postgres.render.com/stockdb_p9ma?sslmode=require 
+        value: postgresql://stockuser:l3fuyJNVKhU7BqEiH1CyGsX52VMRc4Z7@dpg-d7abeb8gjchc73fmu120-a.oregon-postgres.render.com/stockdb_p9ma?sslmode=require
