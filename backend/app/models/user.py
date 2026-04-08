@@ -9,7 +9,6 @@ class User(db.Model):
     nom            = db.Column(db.String(100), nullable=False)
     email          = db.Column(db.String(120), unique=True, nullable=False)
     password_hash  = db.Column(db.String(256), nullable=False)
-    password_plain = db.Column(db.String(100), nullable=True)
     role           = db.Column(db.String(20), default='gerant')
     is_active      = db.Column(db.Boolean, default=True)
     nom_boutique   = db.Column(db.String(150), nullable=True)
@@ -22,20 +21,22 @@ class User(db.Model):
     ventes            = db.relationship('Vente', backref='gerant', lazy=True, cascade='all, delete-orphan')
 
     def set_password(self, password):
-        self.password_plain = password
-        self.password_hash  = generate_password_hash(password)
+        self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
     def to_dict(self, show_password=False):
         d = {
-            'id': self.id, 'nom': self.nom, 'email': self.email,
-            'role': self.role, 'is_active': self.is_active,
-            'nom_boutique': self.nom_boutique, 'telephone': self.telephone,
-            'adresse': self.adresse, 'photo_base64': self.photo_base64,
+            'id': self.id, 
+            'nom': self.nom, 
+            'email': self.email,
+            'role': self.role, 
+            'is_active': self.is_active,
+            'nom_boutique': self.nom_boutique, 
+            'telephone': self.telephone,
+            'adresse': self.adresse, 
+            'photo_base64': self.photo_base64,
             'created_at': self.created_at.isoformat()
         }
-        if show_password:
-            d['password_plain'] = self.password_plain
         return d
