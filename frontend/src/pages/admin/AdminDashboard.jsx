@@ -7,6 +7,7 @@ import {
 import Layout from '../../components/Layout'
 import { StatCard, PageHeader } from '../../components/UI'
 import { getStats, getGerants } from '../../api/adminApi'
+import api from '../../api/axiosConfig'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend, Filler)
 
@@ -68,19 +69,13 @@ export default function AdminDashboard() {
   const chargerVentesEnAttente = async () => {
     setLoadingVentes(true)
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch('/api/admin/ventes/en-attente', {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setVentesEnAttente(data)
-      }
+      const response = await api.get('/admin/ventes/en-attente')
+      setVentesEnAttente(response.data)
     } catch (error) {
       console.error('Erreur chargement ventes:', error)
+      if (error.response?.status === 404) {
+        console.warn('Endpoint /admin/ventes/en-attente not found')
+      }
     } finally {
       setLoadingVentes(false)
     }
@@ -89,25 +84,21 @@ export default function AdminDashboard() {
   // Fonction pour valider une vente
   const validerVente = async (venteId) => {
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch(`/api/admin/ventes/${venteId}/valider`, {
-        method: 'PUT',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      if (response.ok) {
-        alert('✅ Vente validée avec succès !')
-        chargerVentesEnAttente()
-        getStats().then(r => setStats(r.data))
-      } else {
-        const error = await response.json()
-        alert(`Erreur: ${error.error || 'Impossible de valider la vente'}`)
-      }
+      const response = await api.put(`/admin/ventes/${venteId}/valider`)
+      alert('✅ Vente validée avec succès !')
+      chargerVentesEnAttente()
+      // Rafraîchir les stats
+      const statsResponse = await getStats()
+      setStats(statsResponse.data)
     } catch (error) {
-      console.error('Erreur:', error)
-      alert('Erreur lors de la validation')
+      console.error('Erreur lors de la validation:', error)
+      if (error.response?.data?.error) {
+        alert(`Erreur: ${error.response.data.error}`)
+      } else if (error.response?.status === 404) {
+        alert('Erreur: L\'API de validation n\'est pas disponible. Vérifiez que le backend est à jour.')
+      } else {
+        alert('Erreur lors de la validation de la vente')
+      }
     }
   }
 
@@ -116,25 +107,21 @@ export default function AdminDashboard() {
     if (!confirm('Êtes-vous sûr de vouloir rejeter cette vente ? Le stock sera restauré.')) return
     
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const response = await fetch(`/api/admin/ventes/${venteId}/rejeter`, {
-        method: 'PUT',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      if (response.ok) {
-        alert('❌ Vente rejetée, stock restauré')
-        chargerVentesEnAttente()
-        getStats().then(r => setStats(r.data))
-      } else {
-        const error = await response.json()
-        alert(`Erreur: ${error.error || 'Impossible de rejeter la vente'}`)
-      }
+      const response = await api.put(`/admin/ventes/${venteId}/rejeter`)
+      alert('❌ Vente rejetée, stock restauré')
+      chargerVentesEnAttente()
+      // Rafraîchir les stats
+      const statsResponse = await getStats()
+      setStats(statsResponse.data)
     } catch (error) {
-      console.error('Erreur:', error)
-      alert('Erreur lors du rejet')
+      console.error('Erreur lors du rejet:', error)
+      if (error.response?.data?.error) {
+        alert(`Erreur: ${error.response.data.error}`)
+      } else if (error.response?.status === 404) {
+        alert('Erreur: L\'API de rejet n\'est pas disponible. Vérifiez que le backend est à jour.')
+      } else {
+        alert('Erreur lors du rejet de la vente')
+      }
     }
   }
 
