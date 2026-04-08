@@ -4,7 +4,7 @@ import ImageUpload from '../../components/ImageUpload'
 import { PageHeader, Table, Badge, Btn, Modal, Alert, Input, Textarea, Select } from '../../components/UI'
 import { getProduits, createProduit, updateProduit, deleteProduit } from '../../api/adminApi'
 
-const CATS = ['Alimentaire','Électronique','Vêtements','Cosmétiques','Boissons','Matériel','Autre']
+const CATS = ['matelas hybrides','matelas à ressorts','matelas en latex','matelas en mousse','Alimentaire','Électronique','Vêtements','Cosmétiques','Boissons','Matériel','Autre']
 const EMPTY = { nom:'', reference:'', description:'', quantite:0, prix_unitaire:0, prix_vente:0, seuil_alerte:5, image_base64:'', categorie:'' }
 
 export default function AdminProduits() {

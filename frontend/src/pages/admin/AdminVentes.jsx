@@ -8,10 +8,18 @@ import api from '../../api/axiosConfig'
 export default function AdminVentes() {
   const [ventes,  setVentes]  = useState([])
   const [gerants, setGerants] = useState([])
+  const [downloading, setDownloading] = useState(false)
 
   const load = () => {
-    getVentes().then(r => setVentes(r.data))
-    getGerants().then(r => setGerants(r.data))
+    Promise.all([getVentes(), getGerants()])
+      .then(([ventesRes, gerantsRes]) => {
+        setVentes(ventesRes.data)
+        setGerants(gerantsRes.data)
+      })
+      .catch(error => {
+        console.error('Erreur chargement données:', error)
+        alert('Erreur lors du chargement des données')
+      })
   }
 
   useEffect(() => { load() }, [])
@@ -22,23 +30,65 @@ export default function AdminVentes() {
     try {
       await api.put(`/admin/ventes/${id}/valider`)
       load()
+      alert('✅ Vente validée avec succès !')
     } catch (error) {
       console.error('Erreur lors de la validation:', error)
-      alert('Erreur lors de la validation de la vente')
+      alert(error.response?.data?.error || 'Erreur lors de la validation de la vente')
     }
   }
 
   const rejeterVente = async (id) => {
+    if (!confirm('Êtes-vous sûr de vouloir rejeter cette vente ? Le stock sera restauré.')) return
+    
     try {
       await api.put(`/admin/ventes/${id}/rejeter`)
       load()
+      alert('❌ Vente rejetée')
     } catch (error) {
       console.error('Erreur lors du rejet:', error)
-      alert('Erreur lors du rejet de la vente')
+      alert(error.response?.data?.error || 'Erreur lors du rejet de la vente')
     }
   }
 
-  const telechargerExcel = async () => {
+  // Télécharger TOUTES les ventes et TOUTES les factures
+  const telechargerToutesLesVentes = async () => {
+    setDownloading(true)
+    try {
+      // Appel à l'API pour exporter TOUTES les ventes
+      const response = await api.get('/admin/ventes/export/excel', {
+        responseType: 'blob'
+      })
+      
+      const blob = response.data
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const date = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+      a.download = `toutes_les_ventes_et_factures_${date}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      alert('✅ Téléchargement terminé ! Toutes les ventes et factures ont été exportées.')
+    } catch (err) {
+      console.error('Erreur téléchargement:', err)
+      if (err.response?.status === 404) {
+        alert("Aucune vente enregistrée")
+      } else if (err.response?.status === 401) {
+        alert("Session expirée, veuillez vous reconnecter")
+        window.location.href = '/login'
+      } else {
+        alert("Erreur lors du téléchargement du fichier Excel")
+      }
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  // Télécharger les ventes du jour uniquement
+  const telechargerVentesDuJour = async () => {
+    setDownloading(true)
     try {
       const response = await api.get('/gerant/export-excel', {
         responseType: 'blob'
@@ -49,15 +99,21 @@ export default function AdminVentes() {
       const a = document.createElement('a')
       a.href = url
       a.download = `factures_${new Date().toISOString().slice(0, 10)}.xlsx`
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      
+      alert('✅ Téléchargement terminé !')
     } catch (err) {
-      console.error('Erreur téléchargement Excel:', err)
+      console.error('Erreur téléchargement:', err)
       if (err.response?.status === 404) {
         alert("Aucune vente enregistrée aujourd'hui")
       } else {
         alert("Erreur lors du téléchargement du fichier Excel")
       }
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -129,7 +185,25 @@ export default function AdminVentes() {
       <PageHeader
         title="Factures reçues"
         subtitle={`${ventes.length} vente(s) · CA validé : ${total.toLocaleString()} F`}
-        action={<Btn onClick={telechargerExcel}>📥 Excel du jour</Btn>}
+        action={
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Btn 
+              onClick={telechargerVentesDuJour} 
+              disabled={downloading}
+              style={{ opacity: downloading ? 0.7 : 1 }}
+            >
+              📥 Excel du jour
+            </Btn>
+            <Btn 
+              onClick={telechargerToutesLesVentes} 
+              variant="primary"
+              disabled={downloading}
+              style={{ opacity: downloading ? 0.7 : 1 }}
+            >
+              📊 Toutes les ventes et factures
+            </Btn>
+          </div>
+        }
       />
       <Table
         headers={['Facture', 'Produit', 'Boutique', 'Client', 'Qté', 'Montant', 'Actions']}

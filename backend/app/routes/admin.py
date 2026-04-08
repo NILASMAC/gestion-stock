@@ -1,10 +1,12 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from functools import wraps
 from app import db
 from app.models import User, Product, ProductAssignment, Vente, Notification
 from sqlalchemy import func, extract
 from datetime import datetime, timedelta
+import io
+import pandas as pd
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -175,6 +177,110 @@ def get_vente(id):
     d['gerant_telephone'] = g.telephone if g else '—'
     d['gerant_adresse']   = g.adresse if g else '—'
     return jsonify(d), 200
+
+# ─── EXPORT EXCEL (TOUTES LES VENTES) ─────────────────────
+
+@admin_bp.route('/ventes/export/excel', methods=['GET'])
+@admin_required
+def exporter_toutes_les_ventes_excel():
+    """Exporte TOUTES les ventes et TOUTES les factures en Excel"""
+    try:
+        # Récupérer TOUTES les ventes
+        ventes = Vente.query.order_by(Vente.date_vente.desc()).all()
+        
+        if not ventes:
+            return jsonify({'error': 'Aucune vente à exporter'}), 404
+        
+        # Préparer les données pour Excel
+        data = []
+        for vente in ventes:
+            # Récupérer le gérant
+            gerant = User.query.get(vente.gerant_id)
+            # Récupérer le produit
+            produit = Product.query.get(vente.product_id)
+            
+            data.append({
+                'Numéro Facture': vente.numero_facture,
+                'Date Vente': vente.date_vente.strftime('%d/%m/%Y %H:%M:%S'),
+                'Statut': vente.statut,
+                'Client Nom': vente.client_nom,
+                'Client Téléphone': vente.client_telephone,
+                'Client Adresse': vente.client_adresse,
+                'Produit': produit.nom if produit else 'N/A',
+                'Référence Produit': produit.reference if produit else 'N/A',
+                'Quantité': vente.quantite,
+                'Prix Unitaire': vente.prix_unitaire,
+                'Prix Total': vente.prix_total,
+                'Note': vente.note or '',
+                'Facture Envoyée': 'Oui' if vente.facture_envoyee else 'Non',
+                'Gérant': gerant.nom if gerant else 'N/A',
+                'Boutique': gerant.nom_boutique if gerant else 'N/A',
+                'Téléphone Gérant': gerant.telephone if gerant else 'N/A',
+                'Email Gérant': gerant.email if gerant else 'N/A'
+            })
+        
+        # Créer le DataFrame
+        df = pd.DataFrame(data)
+        
+        # Créer le fichier Excel
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Toutes les ventes', index=False)
+            
+            # Ajouter une seconde feuille avec le résumé des statistiques
+            stats_data = {
+                'Statistique': [
+                    'Nombre total de ventes',
+                    'Chiffre d\'affaires total',
+                    'Nombre de ventes validées',
+                    'Nombre de ventes en attente',
+                    'Nombre de ventes rejetées',
+                    'Date d\'export'
+                ],
+                'Valeur': [
+                    len(ventes),
+                    sum(v.prix_total for v in ventes if v.statut == 'validee'),
+                    len([v for v in ventes if v.statut == 'validee']),
+                    len([v for v in ventes if v.statut == 'en_attente']),
+                    len([v for v in ventes if v.statut == 'rejetee']),
+                    datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+                ]
+            }
+            df_stats = pd.DataFrame(stats_data)
+            df_stats.to_excel(writer, sheet_name='Résumé', index=False)
+            
+            # Ajuster la largeur des colonnes pour les deux feuilles
+            for sheet_name in ['Toutes les ventes', 'Résumé']:
+                worksheet = writer.sheets[sheet_name]
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        output.seek(0)
+        
+        # Nom du fichier avec timestamp
+        filename = f"toutes_les_ventes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        print(f"Erreur export Excel: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Erreur lors de l\'export: {str(e)}'}), 500
 
 # ─── STATISTIQUES (version complète avec graphiques) ──────
 
