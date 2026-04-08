@@ -4,6 +4,7 @@ import { PageHeader, Modal, Btn, Input, Textarea, Alert } from '../../components
 import { getMesProduits, vendre } from '../../api/gerantApi'
 import { genererFacture } from '../../components/FacturePDF'
 import { useAuth } from '../../context/AuthContext'
+import api from '../../api/axiosConfig'
 
 const EMPTY_CLIENT = { client_nom:'', client_telephone:'', client_adresse:'', quantite:1, note:'' }
 
@@ -26,20 +27,11 @@ export default function GerantDashboard() {
   useEffect(() => { load() }, [])
 
   const chargerNotifications = async () => {
-    const t = getToken()
-    if (!t) return
     setLoadingNotif(true)
     try {
-      const response = await fetch('/api/gerant/mes-notifications', {
-        headers: {
-          'Authorization': `Bearer ${t}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      if (!response.ok) return
-      const data = await response.json()
-      setNotifications(data)
-      setNonLues(data.filter(n => !n.is_read).length)
+      const response = await api.get('/gerant/mes-notifications')
+      setNotifications(response.data)
+      setNonLues(response.data.filter(n => !n.is_read).length)
     } catch (err) {
       console.error('Erreur notifications:', err)
     } finally {
@@ -48,13 +40,8 @@ export default function GerantDashboard() {
   }
 
   const marquerLue = async (id) => {
-    const t = getToken()
-    if (!t) return
     try {
-      await fetch(`/api/gerant/notifications/${id}/read`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${t}` }
-      })
+      await api.put(`/gerant/notifications/${id}/read`)
       chargerNotifications()
     } catch (err) {
       console.error('Erreur:', err)
@@ -62,13 +49,8 @@ export default function GerantDashboard() {
   }
 
   const marquerToutesLues = async () => {
-    const t = getToken()
-    if (!t) return
     try {
-      await fetch('/api/gerant/notifications/read-all', {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${t}` }
-      })
+      await api.put('/gerant/notifications/read-all')
       chargerNotifications()
     } catch (err) {
       console.error('Erreur:', err)
@@ -100,10 +82,13 @@ export default function GerantDashboard() {
         client_adresse:   form.client_adresse,
       })
       setModal(null)
-      setSuccess(`Vente enregistrée — Facture ${res.data.vente.numero_facture} transmise à l'admin`)
-      setFactureData(res.data.vente)
+      setSuccess(`Vente enregistrée — Facture ${res.data.vente?.numero_facture || res.data.numero_facture} transmise à l'admin`)
+      setFactureData(res.data.vente || res.data)
       load()
-    } catch (e) { setError(e.response?.data?.error || 'Erreur') }
+      chargerNotifications() // Rafraîchir les notifications après vente
+    } catch (e) { 
+      setError(e.response?.data?.error || 'Erreur lors de la vente') 
+    }
   }
 
   const totalProduits = produits.length
@@ -295,7 +280,7 @@ export default function GerantDashboard() {
             <Input label="Adresse" value={form.client_adresse} onChange={set('client_adresse')} placeholder="Quartier, ville..." />
           </div>
 
-          <Input label="Quantité vendue" value={form.quantite} onChange={set('quantite')} type="number" />
+          <Input label="Quantité vendue" value={form.quantite} onChange={set('quantite')} type="number" min="1" max={selected.quantite_assignee} />
 
           {parseInt(form.quantite) > 0 && (
             <div style={{ background:'#052e16', borderRadius:8, padding:'12px 16px', marginBottom:16, border:'1px solid #166534' }}>
