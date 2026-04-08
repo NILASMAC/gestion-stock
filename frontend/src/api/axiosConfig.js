@@ -1,9 +1,11 @@
 import axios from 'axios'
 
+// Hardcode the Render backend URL
+const API_BASE_URL = 'https://gestion-stock-k0on.onrender.com'
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL
-    ? `${import.meta.env.VITE_API_URL}/api`
-    : '/api'
+  baseURL: `${API_BASE_URL}/api`
+  // Remove the VITE_API_URL logic temporarily
 })
 
 api.interceptors.request.use((config) => {
