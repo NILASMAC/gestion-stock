@@ -1,4 +1,9 @@
 import api from './axiosConfig'
-export const login    = (data) => api.post('/auth/login', data)
-export const register = (data) => api.post('/auth/register', data)
-export const getMe    = ()     => api.get('/auth/me')
+
+export const login = (credentials) => api.post('/auth/login', credentials)
+export const register = (userData) => api.post('/auth/register', userData)
+export const getMe = () => api.get('/auth/me')
+export const logout = () => {
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('token')
+}
